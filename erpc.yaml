@@ -3,14 +3,23 @@ logLevel: error
 server:
   listenV4: true
   httpPort: 4000
-  maxTimeout: "30s"
+  maxTimeout: "30s"  # Giảm xuống 30s cho fail fast
   enableGzip: true
-  readTimeout: "30s"
-  writeTimeout: "2m0s"
+  readTimeout: "30s"  # Giảm xuống 30s
+  writeTimeout: "30s"  # Giảm xuống 30s
+  maxConnections: 10000  # OK - Tăng max connections
+  
+  # ⚡ QUAN TRỌNG NHẤT - Cho phép xử lý nhiều requests đồng thời!
+  httpServer:
+    maxConcurrentRequests: 5000  # ← KEY SETTING! Tăng từ default ~100-500
+    http2: true  # Enable HTTP/2 multiplexing
+    maxHeaderBytes: 1048576  # 1MB headers
+    idleTimeout: "120s"  # Keep connections alive
 
 healthCheck:
   mode: "networks"
   defaultEval: "any:initializedUpstreams"
+  interval: "30s"  # Check health mỗi 10s
 
 metrics:
   enabled: true
@@ -20,35 +29,37 @@ metrics:
 
 projects:
   - id: main
-    # Cache để giảm request trùng
+    # Cache để giảm request trùng - TĂNG CACHE
     cache:
-      ttl: "30s"
+      ttl: "30s"  # 30s đủ cho balance checking
       cacheMethods:
         - "eth_getBalance"
         - "eth_call"
         - "eth_blockNumber"
-      cacheSize: 10000
+        - "eth_getTransactionCount"
+      cacheSize: 100000  # Tăng lên 100k entries
     
-    # Failsafe thông minh
+    # Failsafe thông minh - TỐI ƯU
     failsafe:
       timeout:
-        duration: "15s"
+        duration: "10s"  # 10s cho fail fast
       retry:
-        maxCount: 3
-        delay: "500ms"
-        backoffMaxDelay: "10s"
-        backoffFactor: 2
-        jitter: "200ms"
+        maxCount: 2  # Chỉ retry 2 lần (nhanh hơn)
+        delay: "100ms"  # Delay ngắn
+        backoffMaxDelay: "2s"  # Max delay ngắn
+        backoffFactor: 2  # Backoff nhanh
+        jitter: "50ms"  # Jitter nhỏ
       hedge:
-        delay: "1000ms"
-        maxCount: 2
-      # Xử lý block unavailable
+        delay: "300ms"  # Hedge nhanh - gửi request dự phòng sau 300ms
+        maxCount: 2  # Tối đa 2 hedge requests
+      # Xử lý empty results
       emptyResultConfidence: "unknown"
       emptyResultAccept:
         - "eth_getBalance"
         - "eth_call"
         - "eth_getTransactionCount"
-      emptyResultDelay: "100ms"
+        - "eth_blockNumber"
+      emptyResultDelay: "50ms"
     
     upstreams:
       # Ethereum (25+ endpoints)
@@ -99,26 +110,7 @@ projects:
       - endpoint: https://bsc-mainnet.gateway.pokt.network/v1/lb/6136201a7bad1500343e248d
       - endpoint: https://bsc.rpc.blxrbdn.com
       
-      # Polygon (18+ endpoints)
-      - endpoint: https://polygon-bor.publicnode.com
-      - endpoint: https://polygon.llamarpc.com
-      - endpoint: https://polygon.drpc.org
-      - endpoint: https://1rpc.io/matic
-      - endpoint: https://polygon-rpc.com
-      - endpoint: https://polygon.gateway.tenderly.co
-      - endpoint: https://matic-mainnet.chainstacklabs.com
-      - endpoint: https://polygon.blockpi.network/v1/rpc/public
-      - endpoint: https://rpc.ankr.com/polygon
-      - endpoint: https://rpc-mainnet.matic.network
-      - endpoint: https://rpc-mainnet.maticvigil.com
-      - endpoint: https://polygon-mainnet.public.blastapi.io
-      - endpoint: https://gateway.tenderly.co/public/polygon
-      - endpoint: https://poly-rpc.gateway.pokt.network
-      - endpoint: https://polygon.meowrpc.com
-      - endpoint: https://endpoints.omniatech.io/v1/matic/mainnet/public
-      - endpoint: https://polygon.api.onfinality.io/public
-      - endpoint: https://polygon-bor-rpc.publicnode.com
-      - endpoint: https://polygon.rpc.blxrbdn.com
+      
 
     # Network-specific failsafe
     networks:
@@ -149,13 +141,16 @@ rateLimiters:
     - id: default
       rules:
         - method: "*"
-          maxCount: 20000
+          maxCount: 20000  # 20k/s - Rất cao!
           period: 1s
     - id: high_priority
       rules:
         - method: "eth_getBalance"
-          maxCount: 30000
+          maxCount: 30000  # 30k/s cho balance checks
           period: 1s
         - method: "eth_call"
-          maxCount: 30000
+          maxCount: 30000  # 30k/s cho token checks
+          period: 1s
+        - method: "eth_blockNumber"
+          maxCount: 50000  # 50k/s cho block number (rất nhẹ)
           period: 1s
