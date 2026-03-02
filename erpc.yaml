@@ -1,156 +1,764 @@
-logLevel: error
-
+logLevel: warn
 server:
   listenV4: true
   httpPort: 4000
-  maxTimeout: "30s"  # Giảm xuống 30s cho fail fast
+  maxTimeout: 120s
   enableGzip: true
-  readTimeout: "30s"  # Giảm xuống 30s
-  writeTimeout: "30s"  # Giảm xuống 30s
-  maxConnections: 10000  # OK - Tăng max connections
-  
-  # ⚡ QUAN TRỌNG NHẤT - Cho phép xử lý nhiều requests đồng thời!
-  httpServer:
-    maxConcurrentRequests: 5000  # ← KEY SETTING! Tăng từ default ~100-500
-    http2: true  # Enable HTTP/2 multiplexing
-    maxHeaderBytes: 1048576  # 1MB headers
-    idleTimeout: "120s"  # Keep connections alive
-
+  readTimeout: 90s
+  writeTimeout: 10m0s
+  maxConnections: 100000
+  enableCors: true
 healthCheck:
-  mode: "networks"
-  defaultEval: "any:initializedUpstreams"
-  interval: "30s"  # Check health mỗi 10s
-
+  mode: networks
+  defaultEval: any:initializedUpstreams
+  interval: 20s
 metrics:
   enabled: true
   listenV4: true
-  hostV4: "0.0.0.0"
+  hostV4: 0.0.0.0
   port: 4001
-
+database:
+  evmJsonRpcCache:
+    connectors:
+    - id: memory-cache
+      driver: memory
+      memory:
+        maxItems: 200000
+    policies:
+    - network: '*'
+      method: eth_getBalance|eth_call|eth_getTransactionCount
+      finality: finalized
+      ttl: '0'
+      connector: memory-cache
+    - network: '*'
+      method: eth_getBalance|eth_call
+      finality: unfinalized
+      ttl: 10s
+      connector: memory-cache
+    - network: '*'
+      method: eth_blockNumber|eth_gasPrice
+      finality: realtime
+      ttl: 2s
+      connector: memory-cache
 projects:
-  - id: main
-    # Cache để giảm request trùng - TĂNG CACHE
-    cache:
-      ttl: "30s"  # 30s đủ cho balance checking
-      cacheMethods:
-        - "eth_getBalance"
-        - "eth_call"
-        - "eth_blockNumber"
-        - "eth_getTransactionCount"
-      cacheSize: 100000  # Tăng lên 100k entries
-    
-    # Failsafe thông minh - TỐI ƯU
+- id: wallet-scanner-max
+  upstreamDefaults:
+    type: evm
+    jsonRpc:
+      supportsBatch: true
+      batchMaxSize: 100
+      batchMaxWait: 50ms
+    rateLimitBudget: default
     failsafe:
       timeout:
-        duration: "10s"  # 10s cho fail fast
+        duration: 15s
       retry:
-        maxCount: 2  # Chỉ retry 2 lần (nhanh hơn)
-        delay: "100ms"  # Delay ngắn
-        backoffMaxDelay: "2s"  # Max delay ngắn
-        backoffFactor: 2  # Backoff nhanh
-        jitter: "50ms"  # Jitter nhỏ
+        maxCount: 2
+        delay: 100ms
+        backoffMaxDelay: 1s
+        backoffFactor: 1.5
+        jitter: 50ms
+      circuitBreaker:
+        failureThresholdCount: 10
+        failureThresholdCapacity: 50
+        halfOpenAfter: 30s
+        successThresholdCount: 5
+        successThresholdCapacity: 10
+  networkDefaults:
+    architecture: evm
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxCount: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+        emptyResultConfidence: blockHead
+        emptyResultAccept:
+        - eth_getLogs
+        - eth_getTransactionReceipt
+        emptyResultMaxAttempts: 3
       hedge:
-        delay: "300ms"  # Hedge nhanh - gửi request dự phòng sau 300ms
-        maxCount: 2  # Tối đa 2 hedge requests
-      # Xử lý empty results
-      emptyResultConfidence: "unknown"
-      emptyResultAccept:
-        - "eth_getBalance"
-        - "eth_call"
-        - "eth_getTransactionCount"
-        - "eth_blockNumber"
-      emptyResultDelay: "50ms"
-    
-    upstreams:
-      # Ethereum (25+ endpoints)
-      - endpoint: https://eth.llamarpc.com
-      - endpoint: https://ethereum.publicnode.com
-      - endpoint: https://eth.drpc.org
-      - endpoint: https://1rpc.io/eth
-      - endpoint: https://rpc.ankr.com/eth
-      - endpoint: https://cloudflare-eth.com
-      - endpoint: https://rpc.flashbots.net
-      - endpoint: https://eth-mainnet-public.unifra.io
-      - endpoint: https://ethereum.blockpi.network/v1/rpc/public
-      - endpoint: https://rpc.payload.de
-      - endpoint: https://eth.rpc.blxrbdn.com
-      - endpoint: https://nodes.mewapi.io/rpc/eth
-      - endpoint: https://ethereumnodelight.app.runonflux.io
-      - endpoint: https://api.mycryptoapi.com/eth
-      - endpoint: https://gateway.tenderly.co/public/mainnet
-      - endpoint: https://eth.meowrpc.com
-      - endpoint: https://rpc.builder0x69.io
-      - endpoint: https://api.securerpc.com/v1
-      - endpoint: https://eth-mainnet.g.alchemy.com/v2/demo
-      - endpoint: https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161
-      - endpoint: https://endpoints.omniatech.io/v1/eth/mainnet/public
-      - endpoint: https://eth.api.onfinality.io/public
-      - endpoint: https://mainnet.gateway.tenderly.co
-      - endpoint: https://core.gashawk.io/rpc
-      - endpoint: https://rpc.eth.gateway.fm
-      
-      # BSC (18+ endpoints)
-      - endpoint: https://bsc-dataseed.binance.org/
-      - endpoint: https://bsc-dataseed1.binance.org/
-      - endpoint: https://bsc-dataseed2.binance.org/
-      - endpoint: https://bsc-dataseed3.binance.org/
-      - endpoint: https://bsc-dataseed4.binance.org/
-      - endpoint: https://bsc-dataseed1.defibit.io/
-      - endpoint: https://bsc-dataseed2.defibit.io/
-      - endpoint: https://bsc-dataseed1.ninicoin.io/
-      - endpoint: https://bsc-dataseed2.ninicoin.io/
-      - endpoint: https://bsc.drpc.org
-      - endpoint: https://1rpc.io/bnb
-      - endpoint: https://binance.nodereal.io
-      - endpoint: https://bsc.publicnode.com
-      - endpoint: https://rpc.ankr.com/bsc
-      - endpoint: https://bsc.meowrpc.com
-      - endpoint: https://endpoints.omniatech.io/v1/bsc/mainnet/public
-      - endpoint: https://bsc.api.onfinality.io/public
-      - endpoint: https://bsc-mainnet.gateway.pokt.network/v1/lb/6136201a7bad1500343e248d
-      - endpoint: https://bsc.rpc.blxrbdn.com
-      
-      
-
-    # Network-specific failsafe
-    networks:
-      - architecture: evm
-        chainId: 1
-        failsafe:
-          emptyResultConfidence: "finalized"
-          emptyResultAccept:
-            - "eth_getBalance"
-            - "eth_call"
-      - architecture: evm
-        chainId: 56
-        failsafe:
-          emptyResultConfidence: "finalized"
-          emptyResultAccept:
-            - "eth_getBalance"
-            - "eth_call"
-      - architecture: evm
-        chainId: 137
-        failsafe:
-          emptyResultConfidence: "finalized"
-          emptyResultAccept:
-            - "eth_getBalance"
-            - "eth_call"
-
+        delay: 250ms
+        maxCount: 10
+      circuitBreaker:
+        failureThresholdCount: 20
+        failureThresholdCapacity: 100
+        halfOpenAfter: 60s
+        successThresholdCount: 10
+        successThresholdCapacity: 20
+  routing:
+    scoreMultipliers:
+      errorRate: 10.0
+      p90Latency: 5.0
+      totalRequests: 0.1
+      throttledRate: 8.0
+      blockHeadLag: 3.0
+    scorePenaltyDecayRate: 0.9
+    scoreSwitchHysteresis: 0.05
+    scoreMinSwitchInterval: 30s
+  upstreams:
+  - endpoint: https://0xrpc.io/etc
+    scoreMultiplier: 1.0
+  - endpoint: https://0xrpc.io/eth
+    scoreMultiplier: 1.0
+  - endpoint: https://0xrpc.io/gno
+    scoreMultiplier: 1.0
+  - endpoint: https://0xrpc.io/uni
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/eth
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/ftm
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/gnosis
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/manta
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/matic
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/oktc
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/opbnb
+    scoreMultiplier: 1.0
+  - endpoint: https://250.rpc.thirdweb.com
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/bsc-testnet
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/eth-mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/ftm-mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/polygon-mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://b2-mainnet.alt.technology
+    scoreMultiplier: 1.0
+  - endpoint: https://besu-at.etc-network.info
+    scoreMultiplier: 1.0
+  - endpoint: https://bittorrent.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://bnb-testnet.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-testnet-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://bsc-testnet.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://bsc-testnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://bsc-testnet.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://core.gashawk.io/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://coston2-api.flare.network/ext/C/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://coston2.enosys.global/ext/C/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://data-seed-prebsc-1-s1.bnbchain.org:8545
+    scoreMultiplier: 1.0
+  - endpoint: https://data-seed-prebsc-1-s2.bnbchain.org:8545
+    scoreMultiplier: 1.0
+  - endpoint: https://data-seed-prebsc-1-s3.bnbchain.org:8545
+    scoreMultiplier: 1.0
+  - endpoint: https://data-seed-prebsc-2-s1.bnbchain.org:8545
+    scoreMultiplier: 1.0
+  - endpoint: https://data-seed-prebsc-2-s2.bnbchain.org:8545
+    scoreMultiplier: 1.0
+  - endpoint: https://data-seed-prebsc-2-s3.bnbchain.org:8545
+    scoreMultiplier: 1.0
+  - endpoint: https://dataseed1.idn-rpc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://dataseed2.idn-rpc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://dataseed3.idn-rpc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/bsc/testnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/eth/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/fantom/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/gnosis/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/manta-pacific/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/matic/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/xlayer/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/xlayer/testnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://etc.etcdesktop.com
+    scoreMultiplier: 1.0
+  - endpoint: https://etc.mytokenpocket.vip
+    scoreMultiplier: 1.0
+  - endpoint: https://etc.rivet.link
+    scoreMultiplier: 1.0
+  - endpoint: https://eth-mainnet.nodereal.io/v1/1659dfb40aa24bbb8153a677b98064d7
+    scoreMultiplier: 1.2
+  - endpoint: https://eth-mainnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://eth-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf
+    scoreMultiplier: 1.0
+  - endpoint: https://eth.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://eth.blockrazor.xyz
+    scoreMultiplier: 1.0
+  - endpoint: https://eth.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://eth.llamarpc.com
+    scoreMultiplier: 1.3
+  - endpoint: https://eth.meowrpc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://eth.merkle.io
+    scoreMultiplier: 1.0
+  - endpoint: https://eth.rpc.blxrbdn.com/
+    scoreMultiplier: 1.0
+  - endpoint: https://eth1.lava.build
+    scoreMultiplier: 1.0
+  - endpoint: https://ethereum-mainnet.gateway.tatum.io
+    scoreMultiplier: 1.0
+  - endpoint: https://ethereum-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://ethereum-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://ethereum.public.blockpi.network/v1/rpc/public
+    scoreMultiplier: 1.0
+  - endpoint: https://ethereum.rpc.subquery.network/public
+    scoreMultiplier: 1.0
+  - endpoint: https://ethereum.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://evmapi.nuls.io
+    scoreMultiplier: 1.0
+  - endpoint: https://evmapi2.nuls.io
+    scoreMultiplier: 1.0
+  - endpoint: https://evmexplorer.velas.com/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://exchainrpc.okex.org
+    scoreMultiplier: 1.0
+  - endpoint: https://explorer.velas.com/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://fantom-json-rpc.stakely.io
+    scoreMultiplier: 1.0
+  - endpoint: https://fantom-mainnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://fantom-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://fantom-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://fantom.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://fantom.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://fantom.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://flare-testnet-coston2.rpc.thirdweb.com
+    scoreMultiplier: 1.0
+  - endpoint: https://fraxtal-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://fraxtal.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://fraxtal.gateway.tenderly.co
+    scoreMultiplier: 1.0
+  - endpoint: https://fuse-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://fuse.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://fuse.liquify.com
+    scoreMultiplier: 1.0
+  - endpoint: https://gateway.tenderly.co/public/mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://gateway.tenderly.co/public/polygon
+    scoreMultiplier: 1.0
+  - endpoint: https://geth-at.etc-network.info
+    scoreMultiplier: 1.0
+  - endpoint: https://geth-mordor.etc-network.info
+    scoreMultiplier: 1.0
+  - endpoint: https://global.rpc.mintchain.io
+    scoreMultiplier: 1.0
+  - endpoint: https://gnosis-mainnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://gnosis-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://gnosis-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://gnosis.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://gnosis.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://gnosis.oat.farm
+    scoreMultiplier: 1.0
+  - endpoint: https://gnosis.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://go.getblock.io/02667b699f05444ab2c64f9bff28f027
+    scoreMultiplier: 1.0
+  - endpoint: https://go.getblock.io/aefd01aa907c4805ba3c00a9e5b48c6b
+    scoreMultiplier: 1.0
+  - endpoint: https://hashkey.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://kroma.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://lens.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://0.48.club
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/bnb
+    scoreMultiplier: 1.0
+  - endpoint: https://56.rpc.thirdweb.com
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/bsc-mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://binance-smart-chain-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://binance.llamarpc.com
+    scoreMultiplier: 1.3
+  - endpoint: https://binance.nodereal.io
+    scoreMultiplier: 1.2
+  - endpoint: https://bnb.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://bnb.rpc.subquery.network/public
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed.bnbchain.org/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed1.bnbchain.org/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed1.defibit.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed1.ninicoin.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed2.bnbchain.org/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed2.defibit.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed2.ninicoin.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed3.bnbchain.org/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed3.defibit.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed3.ninicoin.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed4.bnbchain.org/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed4.defibit.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-dataseed4.ninicoin.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3
+    scoreMultiplier: 1.2
+  - endpoint: https://bsc-mainnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://bsc-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://bsc.blockrazor.xyz
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://bsc.meowrpc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc.rpc.blxrbdn.com/
+    scoreMultiplier: 1.0
+  - endpoint: https://bsc.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/bsc/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://go.getblock.io/cc778cdbdf5c4b028ec9456e0e6c0cf3
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc-bsc.48.club
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.poolz.finance/bsc
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/matic
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/polygon-mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/matic/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://gateway.tenderly.co/public/polygon
+    scoreMultiplier: 1.0
+  - endpoint: https://go.getblock.io/02667b699f05444ab2c64f9bff28f027
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon-bor-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://polygon-mainnet.gateway.tatum.io
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon-mainnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://polygon-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon-rpc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://polygon.gateway.tenderly.co
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon.lava.build
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon.meowrpc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon.rpc.subquery.network/public
+    scoreMultiplier: 1.0
+  - endpoint: https://polygon.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc-mainnet.matic.quiknode.pro
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.poolz.finance/polygon
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/arb
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/arb-one
+    scoreMultiplier: 1.0
+  - endpoint: https://arb-one-mainnet.gateway.tatum.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://arb1.arbitrum.io/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://arb1.lava.build
+    scoreMultiplier: 1.0
+  - endpoint: https://arbitrum-one-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://arbitrum-one-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://arbitrum-one.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://arbitrum.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://arbitrum.gateway.tenderly.co
+    scoreMultiplier: 1.0
+  - endpoint: https://arbitrum.meowrpc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://arbitrum.public.blockpi.network/v1/rpc/public
+    scoreMultiplier: 1.0
+  - endpoint: https://arbitrum.rpc.subquery.network/public
+    scoreMultiplier: 1.0
+  - endpoint: https://arbitrum.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.poolz.finance/arbitrum
+    scoreMultiplier: 1.0
+  - endpoint: https://0xrpc.io/avax
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/avax/c
+    scoreMultiplier: 1.0
+  - endpoint: https://api.avax.network/ext/bc/C/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/avax-mainnet/ext/bc/C/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://ava-mainnet.public.blastapi.io/ext/bc/C/rpc
+    scoreMultiplier: 1.3
+  - endpoint: https://avalanche-c-chain-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://avalanche-mainnet.gateway.tenderly.co
+    scoreMultiplier: 1.0
+  - endpoint: https://avalanche-public.nodies.app/ext/bc/C/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://avalanche.api.onfinality.io/public/ext/bc/C/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://avalanche.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://avalanche.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/avax/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.poolz.finance/avalanche
+    scoreMultiplier: 1.0
+  - endpoint: https://spectrum-01.simplystaking.xyz/avalanche-mn-rpc/ext/bc/C/rpc
+    scoreMultiplier: 1.0
+  - endpoint: https://0xrpc.io/op
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/op
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/opt-mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/op/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://gateway.tenderly.co/public/optimism
+    scoreMultiplier: 1.0
+  - endpoint: https://go.getblock.io/e8a75f8dcf614861becfbcb185be6eb4
+    scoreMultiplier: 1.0
+  - endpoint: https://mainnet.optimism.io/
+    scoreMultiplier: 1.0
+  - endpoint: https://optimism-mainnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://optimism-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://optimism-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://optimism.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://optimism.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://optimism.gateway.tenderly.co
+    scoreMultiplier: 1.0
+  - endpoint: https://optimism.public.blockpi.network/v1/rpc/public
+    scoreMultiplier: 1.0
+  - endpoint: https://optimism.rpc.subquery.network/public
+    scoreMultiplier: 1.0
+  - endpoint: https://optimism.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://0xrpc.io/base
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/base
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/base-mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://base-mainnet.gateway.tatum.io
+    scoreMultiplier: 1.0
+  - endpoint: https://base-mainnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://base-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://base-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://base.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://base.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://base.gateway.tenderly.co
+    scoreMultiplier: 1.0
+  - endpoint: https://base.lava.build
+    scoreMultiplier: 1.0
+  - endpoint: https://base.llamarpc.com
+    scoreMultiplier: 1.3
+  - endpoint: https://base.meowrpc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://base.public.blockpi.network/v1/rpc/public
+    scoreMultiplier: 1.0
+  - endpoint: https://base.rpc.subquery.network/public
+    scoreMultiplier: 1.0
+  - endpoint: https://base.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://developer-access-mainnet.base.org
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/base/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://gateway.tenderly.co/public/base
+    scoreMultiplier: 1.0
+  - endpoint: https://mainnet-preconf.base.org
+    scoreMultiplier: 1.0
+  - endpoint: https://mainnet.base.org
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.poolz.finance/base
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/zksync2-era
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/zksync-mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/zksync-era/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://go.getblock.io/f76c09905def4618a34946bf71851542
+    scoreMultiplier: 1.0
+  - endpoint: https://mainnet.era.zksync.io
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.ankr.com/zksync_era
+    scoreMultiplier: 1.3
+  - endpoint: https://zksync.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://zksync.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://1rpc.io/ftm
+    scoreMultiplier: 1.0
+  - endpoint: https://250.rpc.thirdweb.com
+    scoreMultiplier: 1.0
+  - endpoint: https://api.zan.top/ftm-mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/fantom/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://fantom-json-rpc.stakely.io
+    scoreMultiplier: 1.0
+  - endpoint: https://fantom-mainnet.gateway.tatum.io
+    scoreMultiplier: 1.0
+  - endpoint: https://fantom-mainnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://fantom-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://fantom-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://fantom.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://fantom.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://fantom.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.fantom.network
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc2.fantom.network
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc3.fantom.network
+    scoreMultiplier: 1.0
+  - endpoint: https://rpcapi.fantom.network
+    scoreMultiplier: 1.0
+  - endpoint: https://celo-json-rpc.stakely.io
+    scoreMultiplier: 1.0
+  - endpoint: https://celo.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://celo.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://forno.celo.org
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.ankr.com/celo
+    scoreMultiplier: 1.3
+  - endpoint: https://0xrpc.io/gno
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/gnosis
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/gnosis/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://gnosis-mainnet.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://gnosis-public.nodies.app
+    scoreMultiplier: 1.0
+  - endpoint: https://gnosis-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://gnosis.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://gnosis.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://gnosis.oat.farm
+    scoreMultiplier: 1.0
+  - endpoint: https://gnosis.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.ap-southeast-1.gateway.fm/v4/gnosis/non-archival/mainnet
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.gnosis.gateway.fm
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.gnosischain.com
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/glmr
+    scoreMultiplier: 1.0
+  - endpoint: https://endpoints.omniatech.io/v1/moonbeam/mainnet/public
+    scoreMultiplier: 1.0
+  - endpoint: https://moonbeam-rpc.dwellir.com
+    scoreMultiplier: 1.0
+  - endpoint: https://moonbeam-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://moonbeam.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://moonbeam.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://moonbeam.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://moonbeam.therpc.io
+    scoreMultiplier: 1.0
+  - endpoint: https://moonbeam.unitedbloc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.api.moonbeam.network
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.poolz.finance/moonbeam
+    scoreMultiplier: 1.0
+  - endpoint: https://moonriver-rpc.dwellir.com
+    scoreMultiplier: 1.0
+  - endpoint: https://moonriver-rpc.publicnode.com
+    scoreMultiplier: 1.3
+  - endpoint: https://moonriver.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://moonriver.drpc.org
+    scoreMultiplier: 1.3
+  - endpoint: https://moonriver.unitedbloc.com
+    scoreMultiplier: 1.0
+  - endpoint: https://rpc.api.moonriver.moonbeam.network
+    scoreMultiplier: 1.0
+  - endpoint: https://1rpc.io/astr
+    scoreMultiplier: 1.0
+  - endpoint: https://astar-rpc.dwellir.com
+    scoreMultiplier: 1.0
+  - endpoint: https://astar.api.onfinality.io/public
+    scoreMultiplier: 1.0
+  - endpoint: https://astar.public.blastapi.io
+    scoreMultiplier: 1.3
+  - endpoint: https://astar.public.curie.radiumblock.co/http
+    scoreMultiplier: 1.0
+  - endpoint: https://astar.public.curie.radiumblock.co/ws
+    scoreMultiplier: 1.0
+  - endpoint: https://evm.astar.network/
+    scoreMultiplier: 1.0
+  networks:
+  - architecture: evm
+    chainId: 1
+    evm:
+      chainId: 1
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 56
+    evm:
+      chainId: 56
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 137
+    evm:
+      chainId: 137
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 42161
+    evm:
+      chainId: 42161
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 43114
+    evm:
+      chainId: 43114
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 10
+    evm:
+      chainId: 10
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 8453
+    evm:
+      chainId: 8453
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 324
+    evm:
+      chainId: 324
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 250
+    evm:
+      chainId: 250
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 42220
+    evm:
+      chainId: 42220
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 100
+    evm:
+      chainId: 100
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 1284
+    evm:
+      chainId: 1284
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 1285
+    evm:
+      chainId: 1285
+      fallbackFinalityDepth: 128
+  - architecture: evm
+    chainId: 592
+    evm:
+      chainId: 592
+      fallbackFinalityDepth: 128
 rateLimiters:
   budgets:
-    - id: default
-      rules:
-        - method: "*"
-          maxCount: 20000  # 20k/s - Rất cao!
-          period: 1s
-    - id: high_priority
-      rules:
-        - method: "eth_getBalance"
-          maxCount: 30000  # 30k/s cho balance checks
-          period: 1s
-        - method: "eth_call"
-          maxCount: 30000  # 30k/s cho token checks
-          period: 1s
-        - method: "eth_blockNumber"
-          maxCount: 50000  # 50k/s cho block number (rất nhẹ)
-          period: 1s
+  - id: default
+    rules:
+    - method: '*'
+      maxCount: 100000
+      period: 1s
+  - id: high_priority
+    rules:
+    - method: eth_getBalance
+      maxCount: 200000
+      period: 1s
+    - method: eth_call
+      maxCount: 200000
+      period: 1s
