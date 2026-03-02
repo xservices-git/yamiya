@@ -1,22 +1,4 @@
 logLevel: warn
-server:
-  listenV4: true
-  httpPort: 4000
-  maxTimeout: 120s
-  enableGzip: true
-  readTimeout: 90s
-  writeTimeout: 10m0s
-  maxConnections: 100000
-  enableCors: true
-healthCheck:
-  mode: networks
-  defaultEval: any:initializedUpstreams
-  interval: 20s
-metrics:
-  enabled: true
-  listenV4: true
-  hostV4: 0.0.0.0
-  port: 4001
 database:
   evmJsonRpcCache:
     connectors:
@@ -26,51 +8,43 @@ database:
         maxItems: 200000
     policies:
     - network: '*'
-      method: eth_getBalance|eth_call|eth_getTransactionCount
+      method: eth_getBalance|eth_call|eth_getTransactionCount|eth_getCode|eth_getStorageAt
       finality: finalized
+      empty: allow
+      connector: memory-cache
       ttl: '0'
-      connector: memory-cache
     - network: '*'
-      method: eth_getBalance|eth_call
+      method: eth_getBalance|eth_call|eth_getBlockByNumber|eth_getLogs
       finality: unfinalized
+      empty: allow
+      connector: memory-cache
       ttl: 10s
-      connector: memory-cache
     - network: '*'
-      method: eth_blockNumber|eth_gasPrice
+      method: eth_blockNumber|eth_gasPrice|eth_maxPriorityFeePerGas
       finality: realtime
-      ttl: 2s
+      empty: allow
       connector: memory-cache
+      ttl: 2s
+server:
+  httpHostV4: 0.0.0.0
+  httpPortV4: 4000
+  maxTimeout: 120s
+metrics:
+  enabled: true
+  hostV4: 0.0.0.0
+  port: 4001
 projects:
-- id: wallet-scanner-max
-  upstreamDefaults:
-    type: evm
-    jsonRpc:
-      supportsBatch: true
-      batchMaxSize: 100
-      batchMaxWait: 50ms
-    rateLimitBudget: default
-    failsafe:
-      timeout:
-        duration: 15s
-      retry:
-        maxCount: 2
-        delay: 100ms
-        backoffMaxDelay: 1s
-        backoffFactor: 1.5
-        jitter: 50ms
-      circuitBreaker:
-        failureThresholdCount: 10
-        failureThresholdCapacity: 50
-        halfOpenAfter: 30s
-        successThresholdCount: 5
-        successThresholdCapacity: 10
+- id: main
+  rateLimitBudget: global-budget
   networkDefaults:
     architecture: evm
     failsafe:
+    - policy: timeout
       timeout:
         duration: 60s
+    - policy: retry
       retry:
-        maxCount: 5
+        maxAttempts: 5
         delay: 200ms
         backoffMaxDelay: 3s
         backoffFactor: 2.0
@@ -80,681 +54,1827 @@ projects:
         - eth_getLogs
         - eth_getTransactionReceipt
         emptyResultMaxAttempts: 3
+    - policy: hedge
       hedge:
         delay: 250ms
         maxCount: 10
+    - policy: circuitBreaker
       circuitBreaker:
         failureThresholdCount: 20
         failureThresholdCapacity: 100
         halfOpenAfter: 60s
         successThresholdCount: 10
         successThresholdCapacity: 20
-  routing:
-    scoreMultipliers:
-      errorRate: 10.0
-      p90Latency: 5.0
-      totalRequests: 0.1
-      throttledRate: 8.0
-      blockHeadLag: 3.0
-    scorePenaltyDecayRate: 0.9
-    scoreSwitchHysteresis: 0.05
-    scoreMinSwitchInterval: 30s
-  upstreams:
-  - endpoint: https://0xrpc.io/etc
-    scoreMultiplier: 1.0
-  - endpoint: https://0xrpc.io/eth
-    scoreMultiplier: 1.0
-  - endpoint: https://0xrpc.io/gno
-    scoreMultiplier: 1.0
-  - endpoint: https://0xrpc.io/uni
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/eth
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/ftm
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/gnosis
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/manta
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/matic
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/oktc
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/opbnb
-    scoreMultiplier: 1.0
-  - endpoint: https://250.rpc.thirdweb.com
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/bsc-testnet
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/eth-mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/ftm-mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/polygon-mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://b2-mainnet.alt.technology
-    scoreMultiplier: 1.0
-  - endpoint: https://besu-at.etc-network.info
-    scoreMultiplier: 1.0
-  - endpoint: https://bittorrent.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://bnb-testnet.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-testnet-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://bsc-testnet.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://bsc-testnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://bsc-testnet.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://core.gashawk.io/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://coston2-api.flare.network/ext/C/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://coston2.enosys.global/ext/C/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://data-seed-prebsc-1-s1.bnbchain.org:8545
-    scoreMultiplier: 1.0
-  - endpoint: https://data-seed-prebsc-1-s2.bnbchain.org:8545
-    scoreMultiplier: 1.0
-  - endpoint: https://data-seed-prebsc-1-s3.bnbchain.org:8545
-    scoreMultiplier: 1.0
-  - endpoint: https://data-seed-prebsc-2-s1.bnbchain.org:8545
-    scoreMultiplier: 1.0
-  - endpoint: https://data-seed-prebsc-2-s2.bnbchain.org:8545
-    scoreMultiplier: 1.0
-  - endpoint: https://data-seed-prebsc-2-s3.bnbchain.org:8545
-    scoreMultiplier: 1.0
-  - endpoint: https://dataseed1.idn-rpc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://dataseed2.idn-rpc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://dataseed3.idn-rpc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/bsc/testnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/eth/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/fantom/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/gnosis/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/manta-pacific/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/matic/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/xlayer/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/xlayer/testnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://etc.etcdesktop.com
-    scoreMultiplier: 1.0
-  - endpoint: https://etc.mytokenpocket.vip
-    scoreMultiplier: 1.0
-  - endpoint: https://etc.rivet.link
-    scoreMultiplier: 1.0
-  - endpoint: https://eth-mainnet.nodereal.io/v1/1659dfb40aa24bbb8153a677b98064d7
-    scoreMultiplier: 1.2
-  - endpoint: https://eth-mainnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://eth-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf
-    scoreMultiplier: 1.0
-  - endpoint: https://eth.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://eth.blockrazor.xyz
-    scoreMultiplier: 1.0
-  - endpoint: https://eth.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://eth.llamarpc.com
-    scoreMultiplier: 1.3
-  - endpoint: https://eth.meowrpc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://eth.merkle.io
-    scoreMultiplier: 1.0
-  - endpoint: https://eth.rpc.blxrbdn.com/
-    scoreMultiplier: 1.0
-  - endpoint: https://eth1.lava.build
-    scoreMultiplier: 1.0
-  - endpoint: https://ethereum-mainnet.gateway.tatum.io
-    scoreMultiplier: 1.0
-  - endpoint: https://ethereum-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://ethereum-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://ethereum.public.blockpi.network/v1/rpc/public
-    scoreMultiplier: 1.0
-  - endpoint: https://ethereum.rpc.subquery.network/public
-    scoreMultiplier: 1.0
-  - endpoint: https://ethereum.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://evmapi.nuls.io
-    scoreMultiplier: 1.0
-  - endpoint: https://evmapi2.nuls.io
-    scoreMultiplier: 1.0
-  - endpoint: https://evmexplorer.velas.com/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://exchainrpc.okex.org
-    scoreMultiplier: 1.0
-  - endpoint: https://explorer.velas.com/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://fantom-json-rpc.stakely.io
-    scoreMultiplier: 1.0
-  - endpoint: https://fantom-mainnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://fantom-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://fantom-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://fantom.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://fantom.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://fantom.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://flare-testnet-coston2.rpc.thirdweb.com
-    scoreMultiplier: 1.0
-  - endpoint: https://fraxtal-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://fraxtal.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://fraxtal.gateway.tenderly.co
-    scoreMultiplier: 1.0
-  - endpoint: https://fuse-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://fuse.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://fuse.liquify.com
-    scoreMultiplier: 1.0
-  - endpoint: https://gateway.tenderly.co/public/mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://gateway.tenderly.co/public/polygon
-    scoreMultiplier: 1.0
-  - endpoint: https://geth-at.etc-network.info
-    scoreMultiplier: 1.0
-  - endpoint: https://geth-mordor.etc-network.info
-    scoreMultiplier: 1.0
-  - endpoint: https://global.rpc.mintchain.io
-    scoreMultiplier: 1.0
-  - endpoint: https://gnosis-mainnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://gnosis-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://gnosis-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://gnosis.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://gnosis.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://gnosis.oat.farm
-    scoreMultiplier: 1.0
-  - endpoint: https://gnosis.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://go.getblock.io/02667b699f05444ab2c64f9bff28f027
-    scoreMultiplier: 1.0
-  - endpoint: https://go.getblock.io/aefd01aa907c4805ba3c00a9e5b48c6b
-    scoreMultiplier: 1.0
-  - endpoint: https://hashkey.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://kroma.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://lens.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://0.48.club
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/bnb
-    scoreMultiplier: 1.0
-  - endpoint: https://56.rpc.thirdweb.com
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/bsc-mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://binance-smart-chain-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://binance.llamarpc.com
-    scoreMultiplier: 1.3
-  - endpoint: https://binance.nodereal.io
-    scoreMultiplier: 1.2
-  - endpoint: https://bnb.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://bnb.rpc.subquery.network/public
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed.bnbchain.org/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed1.bnbchain.org/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed1.defibit.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed1.ninicoin.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed2.bnbchain.org/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed2.defibit.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed2.ninicoin.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed3.bnbchain.org/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed3.defibit.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed3.ninicoin.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed4.bnbchain.org/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed4.defibit.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-dataseed4.ninicoin.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3
-    scoreMultiplier: 1.2
-  - endpoint: https://bsc-mainnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://bsc-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://bsc.blockrazor.xyz
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://bsc.meowrpc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc.rpc.blxrbdn.com/
-    scoreMultiplier: 1.0
-  - endpoint: https://bsc.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/bsc/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://go.getblock.io/cc778cdbdf5c4b028ec9456e0e6c0cf3
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc-bsc.48.club
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.poolz.finance/bsc
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/matic
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/polygon-mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/matic/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://gateway.tenderly.co/public/polygon
-    scoreMultiplier: 1.0
-  - endpoint: https://go.getblock.io/02667b699f05444ab2c64f9bff28f027
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon-bor-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://polygon-mainnet.gateway.tatum.io
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon-mainnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://polygon-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon-rpc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://polygon.gateway.tenderly.co
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon.lava.build
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon.meowrpc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon.rpc.subquery.network/public
-    scoreMultiplier: 1.0
-  - endpoint: https://polygon.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc-mainnet.matic.quiknode.pro
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.poolz.finance/polygon
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/arb
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/arb-one
-    scoreMultiplier: 1.0
-  - endpoint: https://arb-one-mainnet.gateway.tatum.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://arb1.arbitrum.io/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://arb1.lava.build
-    scoreMultiplier: 1.0
-  - endpoint: https://arbitrum-one-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://arbitrum-one-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://arbitrum-one.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://arbitrum.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://arbitrum.gateway.tenderly.co
-    scoreMultiplier: 1.0
-  - endpoint: https://arbitrum.meowrpc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://arbitrum.public.blockpi.network/v1/rpc/public
-    scoreMultiplier: 1.0
-  - endpoint: https://arbitrum.rpc.subquery.network/public
-    scoreMultiplier: 1.0
-  - endpoint: https://arbitrum.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.poolz.finance/arbitrum
-    scoreMultiplier: 1.0
-  - endpoint: https://0xrpc.io/avax
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/avax/c
-    scoreMultiplier: 1.0
-  - endpoint: https://api.avax.network/ext/bc/C/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/avax-mainnet/ext/bc/C/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://ava-mainnet.public.blastapi.io/ext/bc/C/rpc
-    scoreMultiplier: 1.3
-  - endpoint: https://avalanche-c-chain-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://avalanche-mainnet.gateway.tenderly.co
-    scoreMultiplier: 1.0
-  - endpoint: https://avalanche-public.nodies.app/ext/bc/C/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://avalanche.api.onfinality.io/public/ext/bc/C/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://avalanche.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://avalanche.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/avax/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.poolz.finance/avalanche
-    scoreMultiplier: 1.0
-  - endpoint: https://spectrum-01.simplystaking.xyz/avalanche-mn-rpc/ext/bc/C/rpc
-    scoreMultiplier: 1.0
-  - endpoint: https://0xrpc.io/op
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/op
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/opt-mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/op/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://gateway.tenderly.co/public/optimism
-    scoreMultiplier: 1.0
-  - endpoint: https://go.getblock.io/e8a75f8dcf614861becfbcb185be6eb4
-    scoreMultiplier: 1.0
-  - endpoint: https://mainnet.optimism.io/
-    scoreMultiplier: 1.0
-  - endpoint: https://optimism-mainnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://optimism-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://optimism-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://optimism.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://optimism.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://optimism.gateway.tenderly.co
-    scoreMultiplier: 1.0
-  - endpoint: https://optimism.public.blockpi.network/v1/rpc/public
-    scoreMultiplier: 1.0
-  - endpoint: https://optimism.rpc.subquery.network/public
-    scoreMultiplier: 1.0
-  - endpoint: https://optimism.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://0xrpc.io/base
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/base
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/base-mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://base-mainnet.gateway.tatum.io
-    scoreMultiplier: 1.0
-  - endpoint: https://base-mainnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://base-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://base-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://base.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://base.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://base.gateway.tenderly.co
-    scoreMultiplier: 1.0
-  - endpoint: https://base.lava.build
-    scoreMultiplier: 1.0
-  - endpoint: https://base.llamarpc.com
-    scoreMultiplier: 1.3
-  - endpoint: https://base.meowrpc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://base.public.blockpi.network/v1/rpc/public
-    scoreMultiplier: 1.0
-  - endpoint: https://base.rpc.subquery.network/public
-    scoreMultiplier: 1.0
-  - endpoint: https://base.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://developer-access-mainnet.base.org
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/base/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://gateway.tenderly.co/public/base
-    scoreMultiplier: 1.0
-  - endpoint: https://mainnet-preconf.base.org
-    scoreMultiplier: 1.0
-  - endpoint: https://mainnet.base.org
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.poolz.finance/base
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/zksync2-era
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/zksync-mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/zksync-era/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://go.getblock.io/f76c09905def4618a34946bf71851542
-    scoreMultiplier: 1.0
-  - endpoint: https://mainnet.era.zksync.io
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.ankr.com/zksync_era
-    scoreMultiplier: 1.3
-  - endpoint: https://zksync.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://zksync.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://1rpc.io/ftm
-    scoreMultiplier: 1.0
-  - endpoint: https://250.rpc.thirdweb.com
-    scoreMultiplier: 1.0
-  - endpoint: https://api.zan.top/ftm-mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/fantom/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://fantom-json-rpc.stakely.io
-    scoreMultiplier: 1.0
-  - endpoint: https://fantom-mainnet.gateway.tatum.io
-    scoreMultiplier: 1.0
-  - endpoint: https://fantom-mainnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://fantom-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://fantom-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://fantom.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://fantom.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://fantom.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.fantom.network
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc2.fantom.network
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc3.fantom.network
-    scoreMultiplier: 1.0
-  - endpoint: https://rpcapi.fantom.network
-    scoreMultiplier: 1.0
-  - endpoint: https://celo-json-rpc.stakely.io
-    scoreMultiplier: 1.0
-  - endpoint: https://celo.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://celo.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://forno.celo.org
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.ankr.com/celo
-    scoreMultiplier: 1.3
-  - endpoint: https://0xrpc.io/gno
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/gnosis
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/gnosis/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://gnosis-mainnet.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://gnosis-public.nodies.app
-    scoreMultiplier: 1.0
-  - endpoint: https://gnosis-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://gnosis.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://gnosis.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://gnosis.oat.farm
-    scoreMultiplier: 1.0
-  - endpoint: https://gnosis.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.ap-southeast-1.gateway.fm/v4/gnosis/non-archival/mainnet
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.gnosis.gateway.fm
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.gnosischain.com
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/glmr
-    scoreMultiplier: 1.0
-  - endpoint: https://endpoints.omniatech.io/v1/moonbeam/mainnet/public
-    scoreMultiplier: 1.0
-  - endpoint: https://moonbeam-rpc.dwellir.com
-    scoreMultiplier: 1.0
-  - endpoint: https://moonbeam-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://moonbeam.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://moonbeam.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://moonbeam.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://moonbeam.therpc.io
-    scoreMultiplier: 1.0
-  - endpoint: https://moonbeam.unitedbloc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.api.moonbeam.network
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.poolz.finance/moonbeam
-    scoreMultiplier: 1.0
-  - endpoint: https://moonriver-rpc.dwellir.com
-    scoreMultiplier: 1.0
-  - endpoint: https://moonriver-rpc.publicnode.com
-    scoreMultiplier: 1.3
-  - endpoint: https://moonriver.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://moonriver.drpc.org
-    scoreMultiplier: 1.3
-  - endpoint: https://moonriver.unitedbloc.com
-    scoreMultiplier: 1.0
-  - endpoint: https://rpc.api.moonriver.moonbeam.network
-    scoreMultiplier: 1.0
-  - endpoint: https://1rpc.io/astr
-    scoreMultiplier: 1.0
-  - endpoint: https://astar-rpc.dwellir.com
-    scoreMultiplier: 1.0
-  - endpoint: https://astar.api.onfinality.io/public
-    scoreMultiplier: 1.0
-  - endpoint: https://astar.public.blastapi.io
-    scoreMultiplier: 1.3
-  - endpoint: https://astar.public.curie.radiumblock.co/http
-    scoreMultiplier: 1.0
-  - endpoint: https://astar.public.curie.radiumblock.co/ws
-    scoreMultiplier: 1.0
-  - endpoint: https://evm.astar.network/
-    scoreMultiplier: 1.0
+  upstreamDefaults:
+    type: evm
+    rateLimitBudget: default-budget
+    jsonRpc:
+      supportsBatch: true
+      batchMaxSize: 100
+      batchMaxWait: 50ms
+    failsafe:
+    - policy: timeout
+      timeout:
+        duration: 15s
+    - policy: retry
+      retry:
+        maxAttempts: 2
+        delay: 100ms
+        backoffMaxDelay: 1s
+        backoffFactor: 1.5
+        jitter: 50ms
+    - policy: circuitBreaker
+      circuitBreaker:
+        failureThresholdCount: 10
+        failureThresholdCapacity: 50
+        halfOpenAfter: 30s
+        successThresholdCount: 5
+        successThresholdCapacity: 10
   networks:
   - architecture: evm
-    chainId: 1
     evm:
       chainId: 1
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 56
     evm:
       chainId: 56
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 137
     evm:
       chainId: 137
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 42161
     evm:
       chainId: 42161
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 43114
     evm:
       chainId: 43114
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 10
     evm:
       chainId: 10
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 8453
     evm:
       chainId: 8453
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 324
     evm:
       chainId: 324
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 250
     evm:
       chainId: 250
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 42220
     evm:
       chainId: 42220
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 100
     evm:
       chainId: 100
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 1284
     evm:
       chainId: 1284
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 1285
     evm:
       chainId: 1285
-      fallbackFinalityDepth: 128
   - architecture: evm
-    chainId: 592
     evm:
       chainId: 592
-      fallbackFinalityDepth: 128
+  upstreams:
+  - id: endpoint-1
+    type: evm
+    endpoint: https://0xrpc.io/etc
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-2
+    type: evm
+    endpoint: https://0xrpc.io/eth
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-3
+    type: evm
+    endpoint: https://0xrpc.io/gno
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-4
+    type: evm
+    endpoint: https://0xrpc.io/uni
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-5
+    type: evm
+    endpoint: https://1rpc.io/eth
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-6
+    type: evm
+    endpoint: https://1rpc.io/ftm
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-7
+    type: evm
+    endpoint: https://1rpc.io/gnosis
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-8
+    type: evm
+    endpoint: https://1rpc.io/manta
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-9
+    type: evm
+    endpoint: https://1rpc.io/matic
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-10
+    type: evm
+    endpoint: https://1rpc.io/oktc
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-11
+    type: evm
+    endpoint: https://1rpc.io/opbnb
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-12
+    type: evm
+    endpoint: https://250.rpc.thirdweb.com
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-13
+    type: evm
+    endpoint: https://api.zan.top/bsc-testnet
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-14
+    type: evm
+    endpoint: https://api.zan.top/eth-mainnet
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-15
+    type: evm
+    endpoint: https://api.zan.top/ftm-mainnet
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-16
+    type: evm
+    endpoint: https://api.zan.top/polygon-mainnet
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-17
+    type: evm
+    endpoint: https://b2-mainnet.alt.technology
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-18
+    type: evm
+    endpoint: https://besu-at.etc-network.info
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-19
+    type: evm
+    endpoint: https://bittorrent.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-20
+    type: evm
+    endpoint: https://bnb-testnet.api.onfinality.io/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-21
+    type: evm
+    endpoint: https://bsc-testnet-rpc.publicnode.com
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-22
+    type: evm
+    endpoint: https://bsc-testnet.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-23
+    type: evm
+    endpoint: https://bsc-testnet.public.blastapi.io
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-24
+    type: evm
+    endpoint: https://bsc-testnet.therpc.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-25
+    type: evm
+    endpoint: https://core.gashawk.io/rpc
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-26
+    type: evm
+    endpoint: https://coston2-api.flare.network/ext/C/rpc
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-27
+    type: evm
+    endpoint: https://coston2.enosys.global/ext/C/rpc
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-28
+    type: evm
+    endpoint: https://data-seed-prebsc-1-s1.bnbchain.org:8545
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-29
+    type: evm
+    endpoint: https://data-seed-prebsc-1-s2.bnbchain.org:8545
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-30
+    type: evm
+    endpoint: https://data-seed-prebsc-1-s3.bnbchain.org:8545
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-31
+    type: evm
+    endpoint: https://data-seed-prebsc-2-s1.bnbchain.org:8545
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-32
+    type: evm
+    endpoint: https://data-seed-prebsc-2-s2.bnbchain.org:8545
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-33
+    type: evm
+    endpoint: https://data-seed-prebsc-2-s3.bnbchain.org:8545
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-34
+    type: evm
+    endpoint: https://dataseed1.idn-rpc.com
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-35
+    type: evm
+    endpoint: https://dataseed2.idn-rpc.com
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-36
+    type: evm
+    endpoint: https://dataseed3.idn-rpc.com
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-37
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/bsc/testnet/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-38
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/eth/mainnet/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-39
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/fantom/mainnet/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-40
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/gnosis/mainnet/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-41
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/manta-pacific/mainnet/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-42
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/matic/mainnet/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-43
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/xlayer/mainnet/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-44
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/xlayer/testnet/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-45
+    type: evm
+    endpoint: https://etc.etcdesktop.com
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-46
+    type: evm
+    endpoint: https://etc.mytokenpocket.vip
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-47
+    type: evm
+    endpoint: https://etc.rivet.link
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-48
+    type: evm
+    endpoint: https://eth-mainnet.nodereal.io/v1/1659dfb40aa24bbb8153a677b98064d7
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-49
+    type: evm
+    endpoint: https://eth-mainnet.public.blastapi.io
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-50
+    type: evm
+    endpoint: https://eth-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-51
+    type: evm
+    endpoint: https://eth.api.onfinality.io/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-52
+    type: evm
+    endpoint: https://eth.blockrazor.xyz
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-53
+    type: evm
+    endpoint: https://eth.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-54
+    type: evm
+    endpoint: https://eth.llamarpc.com
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-55
+    type: evm
+    endpoint: https://eth.meowrpc.com
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-56
+    type: evm
+    endpoint: https://eth.merkle.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-57
+    type: evm
+    endpoint: https://eth.rpc.blxrbdn.com/
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-58
+    type: evm
+    endpoint: https://eth1.lava.build
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-59
+    type: evm
+    endpoint: https://ethereum-mainnet.gateway.tatum.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-60
+    type: evm
+    endpoint: https://ethereum-public.nodies.app
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-61
+    type: evm
+    endpoint: https://ethereum-rpc.publicnode.com
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-62
+    type: evm
+    endpoint: https://ethereum.public.blockpi.network/v1/rpc/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-63
+    type: evm
+    endpoint: https://ethereum.rpc.subquery.network/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-64
+    type: evm
+    endpoint: https://ethereum.therpc.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-65
+    type: evm
+    endpoint: https://evmapi.nuls.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-66
+    type: evm
+    endpoint: https://evmapi2.nuls.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-67
+    type: evm
+    endpoint: https://evmexplorer.velas.com/rpc
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-68
+    type: evm
+    endpoint: https://exchainrpc.okex.org
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-69
+    type: evm
+    endpoint: https://explorer.velas.com/rpc
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-70
+    type: evm
+    endpoint: https://fantom-json-rpc.stakely.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-71
+    type: evm
+    endpoint: https://fantom-mainnet.public.blastapi.io
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-72
+    type: evm
+    endpoint: https://fantom-public.nodies.app
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-73
+    type: evm
+    endpoint: https://fantom-rpc.publicnode.com
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-74
+    type: evm
+    endpoint: https://fantom.api.onfinality.io/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-75
+    type: evm
+    endpoint: https://fantom.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-76
+    type: evm
+    endpoint: https://fantom.therpc.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-77
+    type: evm
+    endpoint: https://flare-testnet-coston2.rpc.thirdweb.com
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-78
+    type: evm
+    endpoint: https://fraxtal-rpc.publicnode.com
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-79
+    type: evm
+    endpoint: https://fraxtal.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-80
+    type: evm
+    endpoint: https://fraxtal.gateway.tenderly.co
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-81
+    type: evm
+    endpoint: https://fuse-public.nodies.app
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-82
+    type: evm
+    endpoint: https://fuse.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-83
+    type: evm
+    endpoint: https://fuse.liquify.com
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-84
+    type: evm
+    endpoint: https://gateway.tenderly.co/public/mainnet
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-85
+    type: evm
+    endpoint: https://gateway.tenderly.co/public/polygon
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-86
+    type: evm
+    endpoint: https://geth-at.etc-network.info
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-87
+    type: evm
+    endpoint: https://geth-mordor.etc-network.info
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-88
+    type: evm
+    endpoint: https://global.rpc.mintchain.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-89
+    type: evm
+    endpoint: https://gnosis-mainnet.public.blastapi.io
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-90
+    type: evm
+    endpoint: https://gnosis-public.nodies.app
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-91
+    type: evm
+    endpoint: https://gnosis-rpc.publicnode.com
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-92
+    type: evm
+    endpoint: https://gnosis.api.onfinality.io/public
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-93
+    type: evm
+    endpoint: https://gnosis.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-94
+    type: evm
+    endpoint: https://gnosis.oat.farm
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-95
+    type: evm
+    endpoint: https://gnosis.therpc.io
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-96
+    type: evm
+    endpoint: https://go.getblock.io/02667b699f05444ab2c64f9bff28f027
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-97
+    type: evm
+    endpoint: https://go.getblock.io/aefd01aa907c4805ba3c00a9e5b48c6b
+    evm:
+      chainId: 1
+    rateLimitBudget: default-budget
+  - id: endpoint-98
+    type: evm
+    endpoint: https://hashkey.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-99
+    type: evm
+    endpoint: https://kroma.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-100
+    type: evm
+    endpoint: https://lens.drpc.org
+    evm:
+      chainId: 1
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-101
+    type: evm
+    endpoint: https://0.48.club
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-102
+    type: evm
+    endpoint: https://1rpc.io/bnb
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-103
+    type: evm
+    endpoint: https://56.rpc.thirdweb.com
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-104
+    type: evm
+    endpoint: https://api.zan.top/bsc-mainnet
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-105
+    type: evm
+    endpoint: https://binance-smart-chain-public.nodies.app
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-106
+    type: evm
+    endpoint: https://binance.llamarpc.com
+    evm:
+      chainId: 56
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-107
+    type: evm
+    endpoint: https://binance.nodereal.io
+    evm:
+      chainId: 56
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-108
+    type: evm
+    endpoint: https://bnb.api.onfinality.io/public
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-109
+    type: evm
+    endpoint: https://bnb.rpc.subquery.network/public
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-110
+    type: evm
+    endpoint: https://bsc-dataseed.bnbchain.org/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-111
+    type: evm
+    endpoint: https://bsc-dataseed1.bnbchain.org/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-112
+    type: evm
+    endpoint: https://bsc-dataseed1.defibit.io/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-113
+    type: evm
+    endpoint: https://bsc-dataseed1.ninicoin.io/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-114
+    type: evm
+    endpoint: https://bsc-dataseed2.bnbchain.org/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-115
+    type: evm
+    endpoint: https://bsc-dataseed2.defibit.io/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-116
+    type: evm
+    endpoint: https://bsc-dataseed2.ninicoin.io/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-117
+    type: evm
+    endpoint: https://bsc-dataseed3.bnbchain.org/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-118
+    type: evm
+    endpoint: https://bsc-dataseed3.defibit.io/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-119
+    type: evm
+    endpoint: https://bsc-dataseed3.ninicoin.io/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-120
+    type: evm
+    endpoint: https://bsc-dataseed4.bnbchain.org/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-121
+    type: evm
+    endpoint: https://bsc-dataseed4.defibit.io/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-122
+    type: evm
+    endpoint: https://bsc-dataseed4.ninicoin.io/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-123
+    type: evm
+    endpoint: https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3
+    evm:
+      chainId: 56
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-124
+    type: evm
+    endpoint: https://bsc-mainnet.public.blastapi.io
+    evm:
+      chainId: 56
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-125
+    type: evm
+    endpoint: https://bsc-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-126
+    type: evm
+    endpoint: https://bsc-rpc.publicnode.com
+    evm:
+      chainId: 56
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-127
+    type: evm
+    endpoint: https://bsc.blockrazor.xyz
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-128
+    type: evm
+    endpoint: https://bsc.drpc.org
+    evm:
+      chainId: 56
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-129
+    type: evm
+    endpoint: https://bsc.meowrpc.com
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-130
+    type: evm
+    endpoint: https://bsc.rpc.blxrbdn.com/
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-131
+    type: evm
+    endpoint: https://bsc.therpc.io
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-132
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/bsc/mainnet/public
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-133
+    type: evm
+    endpoint: https://go.getblock.io/cc778cdbdf5c4b028ec9456e0e6c0cf3
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-134
+    type: evm
+    endpoint: https://rpc-bsc.48.club
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-135
+    type: evm
+    endpoint: https://rpc.poolz.finance/bsc
+    evm:
+      chainId: 56
+    rateLimitBudget: default-budget
+  - id: endpoint-136
+    type: evm
+    endpoint: https://1rpc.io/matic
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-137
+    type: evm
+    endpoint: https://api.zan.top/polygon-mainnet
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-138
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/matic/mainnet/public
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-139
+    type: evm
+    endpoint: https://gateway.tenderly.co/public/polygon
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-140
+    type: evm
+    endpoint: https://go.getblock.io/02667b699f05444ab2c64f9bff28f027
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-141
+    type: evm
+    endpoint: https://polygon-bor-rpc.publicnode.com
+    evm:
+      chainId: 137
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-142
+    type: evm
+    endpoint: https://polygon-mainnet.gateway.tatum.io
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-143
+    type: evm
+    endpoint: https://polygon-mainnet.public.blastapi.io
+    evm:
+      chainId: 137
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-144
+    type: evm
+    endpoint: https://polygon-mainnet.rpcfast.com?api_key=xbhWBI1Wkguk8SNMu1bvvLurPGLXmgwYeC4S6g2H7WdwFigZSmPWVZRxrskEQwIf
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-145
+    type: evm
+    endpoint: https://polygon-public.nodies.app
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-146
+    type: evm
+    endpoint: https://polygon-rpc.com
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-147
+    type: evm
+    endpoint: https://polygon.api.onfinality.io/public
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-148
+    type: evm
+    endpoint: https://polygon.drpc.org
+    evm:
+      chainId: 137
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-149
+    type: evm
+    endpoint: https://polygon.gateway.tenderly.co
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-150
+    type: evm
+    endpoint: https://polygon.lava.build
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-151
+    type: evm
+    endpoint: https://polygon.meowrpc.com
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-152
+    type: evm
+    endpoint: https://polygon.rpc.subquery.network/public
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-153
+    type: evm
+    endpoint: https://polygon.therpc.io
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-154
+    type: evm
+    endpoint: https://rpc-mainnet.matic.quiknode.pro
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-155
+    type: evm
+    endpoint: https://rpc.poolz.finance/polygon
+    evm:
+      chainId: 137
+    rateLimitBudget: default-budget
+  - id: endpoint-156
+    type: evm
+    endpoint: https://1rpc.io/arb
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-157
+    type: evm
+    endpoint: https://api.zan.top/arb-one
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-158
+    type: evm
+    endpoint: https://arb-one-mainnet.gateway.tatum.io/
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-159
+    type: evm
+    endpoint: https://arb1.arbitrum.io/rpc
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-160
+    type: evm
+    endpoint: https://arb1.lava.build
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-161
+    type: evm
+    endpoint: https://arbitrum-one-public.nodies.app
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-162
+    type: evm
+    endpoint: https://arbitrum-one-rpc.publicnode.com
+    evm:
+      chainId: 42161
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-163
+    type: evm
+    endpoint: https://arbitrum-one.public.blastapi.io
+    evm:
+      chainId: 42161
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-164
+    type: evm
+    endpoint: https://arbitrum.drpc.org
+    evm:
+      chainId: 42161
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-165
+    type: evm
+    endpoint: https://arbitrum.gateway.tenderly.co
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-166
+    type: evm
+    endpoint: https://arbitrum.meowrpc.com
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-167
+    type: evm
+    endpoint: https://arbitrum.public.blockpi.network/v1/rpc/public
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-168
+    type: evm
+    endpoint: https://arbitrum.rpc.subquery.network/public
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-169
+    type: evm
+    endpoint: https://arbitrum.therpc.io
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-170
+    type: evm
+    endpoint: https://rpc.poolz.finance/arbitrum
+    evm:
+      chainId: 42161
+    rateLimitBudget: default-budget
+  - id: endpoint-171
+    type: evm
+    endpoint: https://0xrpc.io/avax
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-172
+    type: evm
+    endpoint: https://1rpc.io/avax/c
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-173
+    type: evm
+    endpoint: https://api.avax.network/ext/bc/C/rpc
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-174
+    type: evm
+    endpoint: https://api.zan.top/avax-mainnet/ext/bc/C/rpc
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-175
+    type: evm
+    endpoint: https://ava-mainnet.public.blastapi.io/ext/bc/C/rpc
+    evm:
+      chainId: 43114
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-176
+    type: evm
+    endpoint: https://avalanche-c-chain-rpc.publicnode.com
+    evm:
+      chainId: 43114
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-177
+    type: evm
+    endpoint: https://avalanche-mainnet.gateway.tenderly.co
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-178
+    type: evm
+    endpoint: https://avalanche-public.nodies.app/ext/bc/C/rpc
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-179
+    type: evm
+    endpoint: https://avalanche.api.onfinality.io/public/ext/bc/C/rpc
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-180
+    type: evm
+    endpoint: https://avalanche.drpc.org
+    evm:
+      chainId: 43114
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-181
+    type: evm
+    endpoint: https://avalanche.therpc.io
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-182
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/avax/mainnet/public
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-183
+    type: evm
+    endpoint: https://rpc.poolz.finance/avalanche
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-184
+    type: evm
+    endpoint: https://spectrum-01.simplystaking.xyz/avalanche-mn-rpc/ext/bc/C/rpc
+    evm:
+      chainId: 43114
+    rateLimitBudget: default-budget
+  - id: endpoint-185
+    type: evm
+    endpoint: https://0xrpc.io/op
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-186
+    type: evm
+    endpoint: https://1rpc.io/op
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-187
+    type: evm
+    endpoint: https://api.zan.top/opt-mainnet
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-188
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/op/mainnet/public
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-189
+    type: evm
+    endpoint: https://gateway.tenderly.co/public/optimism
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-190
+    type: evm
+    endpoint: https://go.getblock.io/e8a75f8dcf614861becfbcb185be6eb4
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-191
+    type: evm
+    endpoint: https://mainnet.optimism.io/
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-192
+    type: evm
+    endpoint: https://optimism-mainnet.public.blastapi.io
+    evm:
+      chainId: 10
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-193
+    type: evm
+    endpoint: https://optimism-public.nodies.app
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-194
+    type: evm
+    endpoint: https://optimism-rpc.publicnode.com
+    evm:
+      chainId: 10
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-195
+    type: evm
+    endpoint: https://optimism.api.onfinality.io/public
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-196
+    type: evm
+    endpoint: https://optimism.drpc.org
+    evm:
+      chainId: 10
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-197
+    type: evm
+    endpoint: https://optimism.gateway.tenderly.co
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-198
+    type: evm
+    endpoint: https://optimism.public.blockpi.network/v1/rpc/public
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-199
+    type: evm
+    endpoint: https://optimism.rpc.subquery.network/public
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-200
+    type: evm
+    endpoint: https://optimism.therpc.io
+    evm:
+      chainId: 10
+    rateLimitBudget: default-budget
+  - id: endpoint-201
+    type: evm
+    endpoint: https://0xrpc.io/base
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-202
+    type: evm
+    endpoint: https://1rpc.io/base
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-203
+    type: evm
+    endpoint: https://api.zan.top/base-mainnet
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-204
+    type: evm
+    endpoint: https://base-mainnet.gateway.tatum.io
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-205
+    type: evm
+    endpoint: https://base-mainnet.public.blastapi.io
+    evm:
+      chainId: 8453
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-206
+    type: evm
+    endpoint: https://base-public.nodies.app
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-207
+    type: evm
+    endpoint: https://base-rpc.publicnode.com
+    evm:
+      chainId: 8453
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-208
+    type: evm
+    endpoint: https://base.api.onfinality.io/public
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-209
+    type: evm
+    endpoint: https://base.drpc.org
+    evm:
+      chainId: 8453
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-210
+    type: evm
+    endpoint: https://base.gateway.tenderly.co
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-211
+    type: evm
+    endpoint: https://base.lava.build
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-212
+    type: evm
+    endpoint: https://base.llamarpc.com
+    evm:
+      chainId: 8453
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-213
+    type: evm
+    endpoint: https://base.meowrpc.com
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-214
+    type: evm
+    endpoint: https://base.public.blockpi.network/v1/rpc/public
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-215
+    type: evm
+    endpoint: https://base.rpc.subquery.network/public
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-216
+    type: evm
+    endpoint: https://base.therpc.io
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-217
+    type: evm
+    endpoint: https://developer-access-mainnet.base.org
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-218
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/base/mainnet/public
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-219
+    type: evm
+    endpoint: https://gateway.tenderly.co/public/base
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-220
+    type: evm
+    endpoint: https://mainnet-preconf.base.org
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-221
+    type: evm
+    endpoint: https://mainnet.base.org
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-222
+    type: evm
+    endpoint: https://rpc.poolz.finance/base
+    evm:
+      chainId: 8453
+    rateLimitBudget: default-budget
+  - id: endpoint-223
+    type: evm
+    endpoint: https://1rpc.io/zksync2-era
+    evm:
+      chainId: 324
+    rateLimitBudget: default-budget
+  - id: endpoint-224
+    type: evm
+    endpoint: https://api.zan.top/zksync-mainnet
+    evm:
+      chainId: 324
+    rateLimitBudget: default-budget
+  - id: endpoint-225
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/zksync-era/mainnet/public
+    evm:
+      chainId: 324
+    rateLimitBudget: default-budget
+  - id: endpoint-226
+    type: evm
+    endpoint: https://go.getblock.io/f76c09905def4618a34946bf71851542
+    evm:
+      chainId: 324
+    rateLimitBudget: default-budget
+  - id: endpoint-227
+    type: evm
+    endpoint: https://mainnet.era.zksync.io
+    evm:
+      chainId: 324
+    rateLimitBudget: default-budget
+  - id: endpoint-228
+    type: evm
+    endpoint: https://rpc.ankr.com/zksync_era
+    evm:
+      chainId: 324
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-229
+    type: evm
+    endpoint: https://zksync.api.onfinality.io/public
+    evm:
+      chainId: 324
+    rateLimitBudget: default-budget
+  - id: endpoint-230
+    type: evm
+    endpoint: https://zksync.drpc.org
+    evm:
+      chainId: 324
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-231
+    type: evm
+    endpoint: https://1rpc.io/ftm
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-232
+    type: evm
+    endpoint: https://250.rpc.thirdweb.com
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-233
+    type: evm
+    endpoint: https://api.zan.top/ftm-mainnet
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-234
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/fantom/mainnet/public
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-235
+    type: evm
+    endpoint: https://fantom-json-rpc.stakely.io
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-236
+    type: evm
+    endpoint: https://fantom-mainnet.gateway.tatum.io
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-237
+    type: evm
+    endpoint: https://fantom-mainnet.public.blastapi.io
+    evm:
+      chainId: 250
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-238
+    type: evm
+    endpoint: https://fantom-public.nodies.app
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-239
+    type: evm
+    endpoint: https://fantom-rpc.publicnode.com
+    evm:
+      chainId: 250
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-240
+    type: evm
+    endpoint: https://fantom.api.onfinality.io/public
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-241
+    type: evm
+    endpoint: https://fantom.drpc.org
+    evm:
+      chainId: 250
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-242
+    type: evm
+    endpoint: https://fantom.therpc.io
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-243
+    type: evm
+    endpoint: https://rpc.fantom.network
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-244
+    type: evm
+    endpoint: https://rpc2.fantom.network
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-245
+    type: evm
+    endpoint: https://rpc3.fantom.network
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-246
+    type: evm
+    endpoint: https://rpcapi.fantom.network
+    evm:
+      chainId: 250
+    rateLimitBudget: default-budget
+  - id: endpoint-247
+    type: evm
+    endpoint: https://celo-json-rpc.stakely.io
+    evm:
+      chainId: 42220
+    rateLimitBudget: default-budget
+  - id: endpoint-248
+    type: evm
+    endpoint: https://celo.api.onfinality.io/public
+    evm:
+      chainId: 42220
+    rateLimitBudget: default-budget
+  - id: endpoint-249
+    type: evm
+    endpoint: https://celo.drpc.org
+    evm:
+      chainId: 42220
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-250
+    type: evm
+    endpoint: https://forno.celo.org
+    evm:
+      chainId: 42220
+    rateLimitBudget: default-budget
+  - id: endpoint-251
+    type: evm
+    endpoint: https://rpc.ankr.com/celo
+    evm:
+      chainId: 42220
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-252
+    type: evm
+    endpoint: https://0xrpc.io/gno
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-253
+    type: evm
+    endpoint: https://1rpc.io/gnosis
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-254
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/gnosis/mainnet/public
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-255
+    type: evm
+    endpoint: https://gnosis-mainnet.public.blastapi.io
+    evm:
+      chainId: 100
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-256
+    type: evm
+    endpoint: https://gnosis-public.nodies.app
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-257
+    type: evm
+    endpoint: https://gnosis-rpc.publicnode.com
+    evm:
+      chainId: 100
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-258
+    type: evm
+    endpoint: https://gnosis.api.onfinality.io/public
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-259
+    type: evm
+    endpoint: https://gnosis.drpc.org
+    evm:
+      chainId: 100
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-260
+    type: evm
+    endpoint: https://gnosis.oat.farm
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-261
+    type: evm
+    endpoint: https://gnosis.therpc.io
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-262
+    type: evm
+    endpoint: https://rpc.ap-southeast-1.gateway.fm/v4/gnosis/non-archival/mainnet
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-263
+    type: evm
+    endpoint: https://rpc.gnosis.gateway.fm
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-264
+    type: evm
+    endpoint: https://rpc.gnosischain.com
+    evm:
+      chainId: 100
+    rateLimitBudget: default-budget
+  - id: endpoint-265
+    type: evm
+    endpoint: https://1rpc.io/glmr
+    evm:
+      chainId: 1284
+    rateLimitBudget: default-budget
+  - id: endpoint-266
+    type: evm
+    endpoint: https://endpoints.omniatech.io/v1/moonbeam/mainnet/public
+    evm:
+      chainId: 1284
+    rateLimitBudget: default-budget
+  - id: endpoint-267
+    type: evm
+    endpoint: https://moonbeam-rpc.dwellir.com
+    evm:
+      chainId: 1284
+    rateLimitBudget: default-budget
+  - id: endpoint-268
+    type: evm
+    endpoint: https://moonbeam-rpc.publicnode.com
+    evm:
+      chainId: 1284
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-269
+    type: evm
+    endpoint: https://moonbeam.api.onfinality.io/public
+    evm:
+      chainId: 1284
+    rateLimitBudget: default-budget
+  - id: endpoint-270
+    type: evm
+    endpoint: https://moonbeam.drpc.org
+    evm:
+      chainId: 1284
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-271
+    type: evm
+    endpoint: https://moonbeam.public.blastapi.io
+    evm:
+      chainId: 1284
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-272
+    type: evm
+    endpoint: https://moonbeam.therpc.io
+    evm:
+      chainId: 1284
+    rateLimitBudget: default-budget
+  - id: endpoint-273
+    type: evm
+    endpoint: https://moonbeam.unitedbloc.com
+    evm:
+      chainId: 1284
+    rateLimitBudget: default-budget
+  - id: endpoint-274
+    type: evm
+    endpoint: https://rpc.api.moonbeam.network
+    evm:
+      chainId: 1284
+    rateLimitBudget: default-budget
+  - id: endpoint-275
+    type: evm
+    endpoint: https://rpc.poolz.finance/moonbeam
+    evm:
+      chainId: 1284
+    rateLimitBudget: default-budget
+  - id: endpoint-276
+    type: evm
+    endpoint: https://moonriver-rpc.dwellir.com
+    evm:
+      chainId: 1285
+    rateLimitBudget: default-budget
+  - id: endpoint-277
+    type: evm
+    endpoint: https://moonriver-rpc.publicnode.com
+    evm:
+      chainId: 1285
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-278
+    type: evm
+    endpoint: https://moonriver.api.onfinality.io/public
+    evm:
+      chainId: 1285
+    rateLimitBudget: default-budget
+  - id: endpoint-279
+    type: evm
+    endpoint: https://moonriver.drpc.org
+    evm:
+      chainId: 1285
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-280
+    type: evm
+    endpoint: https://moonriver.unitedbloc.com
+    evm:
+      chainId: 1285
+    rateLimitBudget: default-budget
+  - id: endpoint-281
+    type: evm
+    endpoint: https://rpc.api.moonriver.moonbeam.network
+    evm:
+      chainId: 1285
+    rateLimitBudget: default-budget
+  - id: endpoint-282
+    type: evm
+    endpoint: https://1rpc.io/astr
+    evm:
+      chainId: 592
+    rateLimitBudget: default-budget
+  - id: endpoint-283
+    type: evm
+    endpoint: https://astar-rpc.dwellir.com
+    evm:
+      chainId: 592
+    rateLimitBudget: default-budget
+  - id: endpoint-284
+    type: evm
+    endpoint: https://astar.api.onfinality.io/public
+    evm:
+      chainId: 592
+    rateLimitBudget: default-budget
+  - id: endpoint-285
+    type: evm
+    endpoint: https://astar.public.blastapi.io
+    evm:
+      chainId: 592
+    rateLimitBudget: high-priority-budget
+  - id: endpoint-286
+    type: evm
+    endpoint: https://astar.public.curie.radiumblock.co/http
+    evm:
+      chainId: 592
+    rateLimitBudget: default-budget
+  - id: endpoint-287
+    type: evm
+    endpoint: https://astar.public.curie.radiumblock.co/ws
+    evm:
+      chainId: 592
+    rateLimitBudget: default-budget
+  - id: endpoint-288
+    type: evm
+    endpoint: https://evm.astar.network/
+    evm:
+      chainId: 592
+    rateLimitBudget: default-budget
 rateLimiters:
   budgets:
-  - id: default
+  - id: global-budget
     rules:
     - method: '*'
       maxCount: 100000
       period: 1s
-  - id: high_priority
+  - id: default-budget
+    rules:
+    - method: '*'
+      maxCount: 100000
+      period: 1s
+  - id: high-priority-budget
     rules:
     - method: eth_getBalance
       maxCount: 200000
