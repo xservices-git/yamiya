@@ -55,11 +55,16 @@ else
     echo -e "${YELLOW}✅ Docker already installed${NC}"
 fi
 
-# 3. Download erpc.yaml from GitHub
-echo -e "\n${GREEN}[3/7] Downloading erpc.yaml from GitHub...${NC}"
-ERPC_CONFIG_URL="https://raw.githubusercontent.com/erpc/erpc/main/erpc.yaml"
-curl -fsSL "$ERPC_CONFIG_URL" -o erpc.yaml || {
+# 3. Download erpc.yaml from YOUR GitHub repo (latest config)
+echo -e "\n${GREEN}[3/7] Downloading latest erpc.yaml from your repo...${NC}"
+curl -fsSL "https://raw.githubusercontent.com/xservices-git/yamiya/main/erpc.yaml" -o erpc.yaml 2>/dev/null || {
     echo -e "${YELLOW}⚠️  Failed to download from GitHub, using local config${NC}"
+    if [ -f "config/erpc.yaml" ]; then
+        cp config/erpc.yaml erpc.yaml
+    else
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        cp "$SCRIPT_DIR/erpc-simple.yaml" erpc.yaml
+    fi
 }
 
 if [ -f "erpc.yaml" ]; then
@@ -84,7 +89,7 @@ fi
 # 5. Build Docker image
 echo -e "\n${GREEN}[5/7] Building Docker image from source...${NC}"
 cd erpc
-sudo docker build -t erpc-local:latest .
+sudo DOCKER_BUILDKIT=1 docker build -t erpc-local:latest .
 cd ..
 echo -e "${GREEN}✅ Docker image built successfully${NC}"
 
@@ -162,12 +167,13 @@ echo -e "\n${GREEN}[BONUS] Setting up config auto-update...${NC}"
 # Create update script
 cat > /tmp/erpc-update-config.sh << 'EOF'
 #!/bin/bash
-# Download latest erpc.yaml from GitHub
+# Download latest erpc.yaml from GitHub repo
 cd /root/.erpc || exit 1
-curl -fsSL "https://raw.githubusercontent.com/erpc/erpc/main/erpc.yaml" -o erpc.yaml.new
+curl -fsSL "https://raw.githubusercontent.com/xservices-git/yamiya/main/erpc.yaml" -o erpc.yaml.new
 if [ -f "erpc.yaml.new" ]; then
     mv erpc.yaml.new erpc.yaml
-    echo "[$(date)] Config updated from GitHub" >> /var/log/erpc-config-update.log
+    docker restart erpc-server >/dev/null 2>&1
+    echo "[$(date)] Config updated and container restarted" >> /var/log/erpc-config-update.log
 fi
 EOF
 
