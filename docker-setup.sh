@@ -139,9 +139,8 @@ start_erpc() {
         --restart unless-stopped \
         -p 4000:4000 \
         -p 4001:4001 \
-        -v "$ERPC_CONFIG:/root/erpc.yaml:ro" \
-        "$IMAGE_NAME" \
-        --config /root/erpc.yaml
+        -v "$ERPC_CONFIG:/app/erpc.yaml:ro" \
+        "$IMAGE_NAME"
     
     echo "✅ eRPC container started"
     echo "   HTTP: http://localhost:4000"
