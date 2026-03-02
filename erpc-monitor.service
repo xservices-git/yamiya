@@ -1,0 +1,20 @@
+[Unit]
+Description=eRPC Docker Monitor - Auto restart & update
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/eRPC/.setup
+ExecStart=/root/eRPC/.setup/docker-setup.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+[Install]
+WantedBy=multi-user.target
