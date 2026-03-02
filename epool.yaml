@@ -1,3 +1,6 @@
+# Example Pool Config for GitHub - epool.yaml
+# Upload this file to: https://github.com/xservices-git/yamiya/blob/main/epool.yaml
+
 erpc_pool:
   # List of eRPC servers (add more for load balancing)
   servers:
@@ -7,3 +10,12 @@ erpc_pool:
       name: "vps-1-erpc"
     - url: "http://135.148.112.180:4000"
       name: "vps-2-erpc"
+    # Add more servers here:
+    # - url: "http://another-server:4000"
+    #   name: "vps-3-erpc"
+  
+  # Health check interval (seconds) - AUTO RECONNECT
+  health_check_interval: 5
+  
+  # Load balancing strategy: "round-robin" or "best" (lowest latency)
+  strategy: "round-robin"
