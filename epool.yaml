@@ -1,36 +1,22 @@
-# eRPC Pool Configuration
-# This file is auto-synced from GitHub every 10 minutes
-# Upload to: https://github.com/xservices-git/yamiya/blob/main/epool.yaml
+# eRPC Pool Configuration - Auto-updated from GitHub
+# Upload this file to: https://github.com/xservices-git/yamiya/blob/main/epool.yaml
+# Scanner will download and update every 30 seconds
 
 erpc_pool:
-  health_check_interval: 3  # Check health every 3 seconds
+  # Health check interval (seconds)
+  health_check_interval: 3
   
+  # eRPC servers list
   servers:
-    # Local eRPC
     - name: local-erpc
       url: http://localhost:4000
     
-    # VPS 1
     - name: vps-1-erpc
       url: http://142.54.189.250:4000
     
-    # VPS 2
     - name: vps-2-erpc
       url: http://135.148.112.180:4000
-    
-    # Add more servers here as you scale
-    # - name: vps-3-erpc
-    #   url: http://192.168.1.100:4000
-    
-    # - name: vps-4-erpc
-    #   url: http://192.168.1.101:4000
   
   # Load balancing strategy
-  # Options: "least-loaded" (default), "round-robin", "best"
-  strategy: least-loaded
-
-# Notes:
-# - All scanners will auto-update from this file every 10 minutes
-# - No need to restart scanners when adding/removing servers
-# - Unhealthy servers are automatically skipped
-# - Load is distributed evenly across healthy servers
+  # Options: "least-loaded" (recommended), "round-robin", "best"
+  strategy: round-robin
