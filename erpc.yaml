@@ -1,0 +1,161 @@
+logLevel: error
+
+server:
+  listenV4: true
+  httpPort: 4000
+  maxTimeout: "30s"
+  enableGzip: true
+  readTimeout: "30s"
+  writeTimeout: "2m0s"
+
+healthCheck:
+  mode: "networks"
+  defaultEval: "any:initializedUpstreams"
+
+metrics:
+  enabled: true
+  listenV4: true
+  hostV4: "0.0.0.0"
+  port: 4001
+
+projects:
+  - id: main
+    # Cache để giảm request trùng
+    cache:
+      ttl: "30s"
+      cacheMethods:
+        - "eth_getBalance"
+        - "eth_call"
+        - "eth_blockNumber"
+      cacheSize: 10000
+    
+    # Failsafe thông minh
+    failsafe:
+      timeout:
+        duration: "15s"
+      retry:
+        maxCount: 3
+        delay: "500ms"
+        backoffMaxDelay: "10s"
+        backoffFactor: 2
+        jitter: "200ms"
+      hedge:
+        delay: "1000ms"
+        maxCount: 2
+      # Xử lý block unavailable
+      emptyResultConfidence: "unknown"
+      emptyResultAccept:
+        - "eth_getBalance"
+        - "eth_call"
+        - "eth_getTransactionCount"
+      emptyResultDelay: "100ms"
+    
+    upstreams:
+      # Ethereum (25+ endpoints)
+      - endpoint: https://eth.llamarpc.com
+      - endpoint: https://ethereum.publicnode.com
+      - endpoint: https://eth.drpc.org
+      - endpoint: https://1rpc.io/eth
+      - endpoint: https://rpc.ankr.com/eth
+      - endpoint: https://cloudflare-eth.com
+      - endpoint: https://rpc.flashbots.net
+      - endpoint: https://eth-mainnet-public.unifra.io
+      - endpoint: https://ethereum.blockpi.network/v1/rpc/public
+      - endpoint: https://rpc.payload.de
+      - endpoint: https://eth.rpc.blxrbdn.com
+      - endpoint: https://nodes.mewapi.io/rpc/eth
+      - endpoint: https://ethereumnodelight.app.runonflux.io
+      - endpoint: https://api.mycryptoapi.com/eth
+      - endpoint: https://gateway.tenderly.co/public/mainnet
+      - endpoint: https://eth.meowrpc.com
+      - endpoint: https://rpc.builder0x69.io
+      - endpoint: https://api.securerpc.com/v1
+      - endpoint: https://eth-mainnet.g.alchemy.com/v2/demo
+      - endpoint: https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161
+      - endpoint: https://endpoints.omniatech.io/v1/eth/mainnet/public
+      - endpoint: https://eth.api.onfinality.io/public
+      - endpoint: https://mainnet.gateway.tenderly.co
+      - endpoint: https://core.gashawk.io/rpc
+      - endpoint: https://rpc.eth.gateway.fm
+      
+      # BSC (18+ endpoints)
+      - endpoint: https://bsc-dataseed.binance.org/
+      - endpoint: https://bsc-dataseed1.binance.org/
+      - endpoint: https://bsc-dataseed2.binance.org/
+      - endpoint: https://bsc-dataseed3.binance.org/
+      - endpoint: https://bsc-dataseed4.binance.org/
+      - endpoint: https://bsc-dataseed1.defibit.io/
+      - endpoint: https://bsc-dataseed2.defibit.io/
+      - endpoint: https://bsc-dataseed1.ninicoin.io/
+      - endpoint: https://bsc-dataseed2.ninicoin.io/
+      - endpoint: https://bsc.drpc.org
+      - endpoint: https://1rpc.io/bnb
+      - endpoint: https://binance.nodereal.io
+      - endpoint: https://bsc.publicnode.com
+      - endpoint: https://rpc.ankr.com/bsc
+      - endpoint: https://bsc.meowrpc.com
+      - endpoint: https://endpoints.omniatech.io/v1/bsc/mainnet/public
+      - endpoint: https://bsc.api.onfinality.io/public
+      - endpoint: https://bsc-mainnet.gateway.pokt.network/v1/lb/6136201a7bad1500343e248d
+      - endpoint: https://bsc.rpc.blxrbdn.com
+      
+      # Polygon (18+ endpoints)
+      - endpoint: https://polygon-bor.publicnode.com
+      - endpoint: https://polygon.llamarpc.com
+      - endpoint: https://polygon.drpc.org
+      - endpoint: https://1rpc.io/matic
+      - endpoint: https://polygon-rpc.com
+      - endpoint: https://polygon.gateway.tenderly.co
+      - endpoint: https://matic-mainnet.chainstacklabs.com
+      - endpoint: https://polygon.blockpi.network/v1/rpc/public
+      - endpoint: https://rpc.ankr.com/polygon
+      - endpoint: https://rpc-mainnet.matic.network
+      - endpoint: https://rpc-mainnet.maticvigil.com
+      - endpoint: https://polygon-mainnet.public.blastapi.io
+      - endpoint: https://gateway.tenderly.co/public/polygon
+      - endpoint: https://poly-rpc.gateway.pokt.network
+      - endpoint: https://polygon.meowrpc.com
+      - endpoint: https://endpoints.omniatech.io/v1/matic/mainnet/public
+      - endpoint: https://polygon.api.onfinality.io/public
+      - endpoint: https://polygon-bor-rpc.publicnode.com
+      - endpoint: https://polygon.rpc.blxrbdn.com
+
+    # Network-specific failsafe
+    networks:
+      - architecture: evm
+        chainId: 1
+        failsafe:
+          emptyResultConfidence: "finalized"
+          emptyResultAccept:
+            - "eth_getBalance"
+            - "eth_call"
+      - architecture: evm
+        chainId: 56
+        failsafe:
+          emptyResultConfidence: "finalized"
+          emptyResultAccept:
+            - "eth_getBalance"
+            - "eth_call"
+      - architecture: evm
+        chainId: 137
+        failsafe:
+          emptyResultConfidence: "finalized"
+          emptyResultAccept:
+            - "eth_getBalance"
+            - "eth_call"
+
+rateLimiters:
+  budgets:
+    - id: default
+      rules:
+        - method: "*"
+          maxCount: 5000
+          period: 1s
+    - id: high_priority
+      rules:
+        - method: "eth_getBalance"
+          maxCount: 8000
+          period: 1s
+        - method: "eth_call"
+          maxCount: 8000
+          period: 1s
