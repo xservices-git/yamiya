@@ -149,13 +149,13 @@ rateLimiters:
     - id: default
       rules:
         - method: "*"
-          maxCount: 5000
+          maxCount: 20000
           period: 1s
     - id: high_priority
       rules:
         - method: "eth_getBalance"
-          maxCount: 8000
+          maxCount: 30000
           period: 1s
         - method: "eth_call"
-          maxCount: 8000
+          maxCount: 30000
           period: 1s
