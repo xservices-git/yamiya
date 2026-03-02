@@ -1,0 +1,9 @@
+erpc_pool:
+  # List of eRPC servers (add more for load balancing)
+  servers:
+    - url: "http://localhost:4000"
+      name: "local-erpc"
+    - url: "http://142.54.189.250:4000"
+      name: "vps-1-erpc"
+    - url: "http://135.148.112.180:4000"
+      name: "vps-2-erpc"
