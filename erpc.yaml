@@ -36,35 +36,6 @@ metrics:
 projects:
 - id: main
   rateLimitBudget: global-budget
-  networkDefaults:
-    architecture: evm
-    failsafe:
-    - policy: timeout
-      timeout:
-        duration: 60s
-    - policy: retry
-      retry:
-        maxAttempts: 5
-        delay: 200ms
-        backoffMaxDelay: 3s
-        backoffFactor: 2.0
-        jitter: 100ms
-        emptyResultConfidence: blockHead
-        emptyResultAccept:
-        - eth_getLogs
-        - eth_getTransactionReceipt
-        emptyResultMaxAttempts: 3
-    - policy: hedge
-      hedge:
-        delay: 250ms
-        maxCount: 10
-    - policy: circuitBreaker
-      circuitBreaker:
-        failureThresholdCount: 20
-        failureThresholdCapacity: 100
-        halfOpenAfter: 60s
-        successThresholdCount: 10
-        successThresholdCapacity: 20
   upstreamDefaults:
     type: evm
     rateLimitBudget: default-budget
@@ -73,66 +44,225 @@ projects:
       batchMaxSize: 100
       batchMaxWait: 50ms
     failsafe:
-    - policy: timeout
       timeout:
         duration: 15s
-    - policy: retry
       retry:
         maxAttempts: 2
         delay: 100ms
         backoffMaxDelay: 1s
         backoffFactor: 1.5
         jitter: 50ms
-    - policy: circuitBreaker
-      circuitBreaker:
-        failureThresholdCount: 10
-        failureThresholdCapacity: 50
-        halfOpenAfter: 30s
-        successThresholdCount: 5
-        successThresholdCapacity: 10
   networks:
   - architecture: evm
     evm:
       chainId: 1
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 56
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 137
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 42161
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 43114
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 10
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 8453
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 324
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 250
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 42220
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 100
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 1284
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 1285
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   - architecture: evm
     evm:
       chainId: 592
+    failsafe:
+      timeout:
+        duration: 60s
+      retry:
+        maxAttempts: 5
+        delay: 200ms
+        backoffMaxDelay: 3s
+        backoffFactor: 2.0
+        jitter: 100ms
+      hedge:
+        delay: 250ms
+        maxCount: 10
   upstreams:
   - id: endpoint-1
     type: evm
