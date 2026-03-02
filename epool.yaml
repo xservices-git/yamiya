@@ -4,7 +4,7 @@
 
 erpc_pool:
   # Health check interval (seconds)
-  health_check_interval: 3
+  health_check_interval: 30
   
   # eRPC servers list
   servers:
