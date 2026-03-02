@@ -161,6 +161,106 @@ reload_config() {
     echo "✅ Config reloaded"
 }
 
+# Function: Install as systemd service (Linux only)
+install_systemd_service() {
+    echo ""
+    echo "🔧 Installing systemd service..."
+    
+    # Check if running as root
+    if [ "$EUID" -ne 0 ]; then
+        echo "⚠️  Need root privileges to install service"
+        echo "   Re-running with sudo..."
+        
+        # Create service file content
+        SERVICE_CONTENT="[Unit]
+Description=eRPC Docker Monitor - Auto restart & update
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$SCRIPT_DIR
+ExecStart=$SCRIPT_DIR/docker-setup.sh --service-mode
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=\"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"
+
+[Install]
+WantedBy=multi-user.target"
+        
+        # Write service file
+        echo "$SERVICE_CONTENT" | sudo tee /etc/systemd/system/erpc-monitor.service > /dev/null
+        
+        # Reload and enable
+        sudo systemctl daemon-reload
+        sudo systemctl enable erpc-monitor
+        
+        echo "✅ Service installed"
+        echo ""
+        echo "Commands:"
+        echo "  sudo systemctl start erpc-monitor    # Start"
+        echo "  sudo systemctl stop erpc-monitor     # Stop"
+        echo "  sudo systemctl status erpc-monitor   # Status"
+        echo "  sudo systemctl restart erpc-monitor  # Restart"
+        echo "  sudo journalctl -u erpc-monitor -f   # View logs"
+        echo ""
+        
+        read -p "Start service now? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            sudo systemctl start erpc-monitor
+            echo "✅ Service started"
+            echo ""
+            echo "View logs with: sudo journalctl -u erpc-monitor -f"
+        else
+            echo "✓ Service installed but not started"
+            echo "   Start with: sudo systemctl start erpc-monitor"
+        fi
+        
+        return 0
+    fi
+    
+    # Already root, install directly
+    SERVICE_FILE="/etc/systemd/system/erpc-monitor.service"
+    
+    cat > "$SERVICE_FILE" << EOF
+[Unit]
+Description=eRPC Docker Monitor - Auto restart & update
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$SCRIPT_DIR
+ExecStart=$SCRIPT_DIR/docker-setup.sh --service-mode
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    systemctl enable erpc-monitor
+    
+    echo "✅ Service installed"
+    echo ""
+    
+    read -p "Start service now? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        systemctl start erpc-monitor
+        echo "✅ Service started"
+    fi
+}
+
 # Function: Background monitor (auto-restart + auto-update)
 background_monitor() {
     echo ""
@@ -221,6 +321,21 @@ background_monitor() {
 
 # Main execution
 main() {
+    # Check if running in service mode (skip interactive prompts)
+    if [[ "$1" == "--service-mode" ]]; then
+        echo "🚀 Starting in service mode..."
+        
+        # Ensure Docker is running
+        if ! docker info >/dev/null 2>&1; then
+            echo "❌ Docker daemon not running"
+            exit 1
+        fi
+        
+        # Start monitor directly (no prompts)
+        background_monitor
+        exit 0
+    fi
+    
     # Check Docker
     if ! command_exists docker; then
         echo "⚠️  Docker not found"
@@ -301,15 +416,36 @@ main() {
     echo "========================================"
     echo ""
     
-    # Ask to start monitor
-    read -p "Start background monitor? (auto-restart + auto-update) (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        background_monitor
+    # Ask to install as service (Linux only)
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        echo "🔧 INSTALL AS SYSTEMD SERVICE"
+        echo "This will run eRPC monitor automatically on boot"
+        echo ""
+        read -p "Install as systemd service? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            install_systemd_service
+        else
+            # Ask to start monitor manually
+            read -p "Start background monitor now? (y/n): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                background_monitor
+            else
+                echo "✓ Setup complete. Run this script again to start monitor."
+            fi
+        fi
     else
-        echo "✓ Setup complete. Run this script again to start monitor."
+        # macOS - just ask to start monitor
+        read -p "Start background monitor? (auto-restart + auto-update) (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            background_monitor
+        else
+            echo "✓ Setup complete. Run this script again to start monitor."
+        fi
     fi
 }
 
 # Run main
-main
+main "$@"
